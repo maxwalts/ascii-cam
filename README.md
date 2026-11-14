@@ -14,15 +14,15 @@ It's a single HTML file, with no install and no build step.
 
 ## Usage
 
-1. Open `index.html` in Chrome (or use the live demo, if GitHub Pages is enabled).
+1. Open `index.html` in Chrome (or use the live demo)
 2. Click **start** and allow camera access. The microphone isn't used.
 3. Drag an audio file (your mix) onto the page.
 
-| Key   | Action                                          |
-|-------|-------------------------------------------------|
-| Space | Play / pause the track                          |
-| R     | Start or stop recording (downloads the video)   |
-| A     | Switch aspect ratio: 16:9, 9:16, 1:1            |
+| Key   | Action                                           |
+| ----- | ------------------------------------------------ |
+| Space | Play / pause the track                           |
+| R     | Start or stop recording (downloads the video)    |
+| A     | Switch aspect ratio: 16:9, 9:16, 1:1             |
 | H     | Hide or show the help text (it's never recorded) |
 
 Notes:
@@ -33,16 +33,16 @@ Notes:
 
 All the settings are at the top of the `<script>` in `index.html`:
 
-| Setting          | What it does                                                    |
-|------------------|-----------------------------------------------------------------|
-| `PALETTE`        | Colours to cycle through (RGB). Repeat a colour to make it last longer. |
-| `ROWS`           | Rows of text. Lower gives bigger characters and a less recognisable image. |
-| `CHARS`          | Character ramp, from dark to bright                             |
-| `MUSIC_BOOST`    | How much loudness brightens the characters                      |
-| `KICK_BOOST`     | Extra brightness flash on each kick                             |
-| `CUTOFF`         | Person-mask threshold. Raise it if the background bleeds in.    |
-| `MOTION_CUTOFF`  | Lower threshold for moving areas. Lower it if fast hands get clipped. |
-| `MOTION_AMOUNT`  | How much change counts as movement                              |
+| Setting         | What it does                                                               |
+| --------------- | -------------------------------------------------------------------------- |
+| `PALETTE`       | Colours to cycle through (RGB). Repeat a colour to make it last longer.    |
+| `ROWS`          | Rows of text. Lower gives bigger characters and a less recognisable image. |
+| `CHARS`         | Character ramp, from dark to bright                                        |
+| `MUSIC_BOOST`   | How much loudness brightens the characters                                 |
+| `KICK_BOOST`    | Extra brightness flash on each kick                                        |
+| `CUTOFF`        | Person-mask threshold. Raise it if the background bleeds in.               |
+| `MOTION_CUTOFF` | Lower threshold for moving areas. Lower it if fast hands get clipped.      |
+| `MOTION_AMOUNT` | How much change counts as movement                                         |
 
 ## License
 

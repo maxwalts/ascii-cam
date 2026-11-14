@@ -1,249 +1,286 @@
 <!doctype html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<title>ASCII Cam</title>
-<style>
-  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-  canvas { display: block; width: 100vw; height: 100vh; object-fit: contain; }
-  #start { position: fixed; inset: 0; margin: auto; width: 240px; height: 60px; z-index: 2;
-           font: 18px monospace; background: #0f0; border: 0; cursor: pointer; }
-  #hud { position: fixed; left: 12px; bottom: 10px; font: 12px monospace; color: #888; }
-  #hud.rec::before { content: "● REC  "; color: #f33; }
-</style>
+  <meta charset="utf-8">
+  <title>ASCII Cam</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+    }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      margin: auto;
+      width: 240px;
+      height: 60px;
+      z-index: 2;
+      font: 18px monospace;
+      background: #0f0;
+      border: 0;
+      cursor: pointer;
+    }
+
+    #hud {
+      position: fixed;
+      left: 12px;
+      bottom: 10px;
+      font: 12px monospace;
+      color: #888;
+    }
+
+    #hud.rec::before {
+      content: "● REC  ";
+      color: #f33;
+    }
+  </style>
 </head>
+
 <body>
-<button id="start">click to start</button>
-<canvas id="out"></canvas>
-<div id="hud">drop your mix file here · R record · A aspect · H hide</div>
-<script type="module">
-import { FilesetResolver, ImageSegmenter } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+  <button id="start">click to start</button>
+  <canvas id="out"></canvas>
+  <div id="hud">drop your mix file here · R record · A aspect · H hide</div>
+  <script type="module">
+    import { FilesetResolver, ImageSegmenter } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-// ---------- knobs ----------
-const CHARS = " .:-=+*#%@";            // body: dark -> bright
-// colors pulled from the rave photo, cycled in order (mostly blues, with laser green + orange hits)
-const PALETTE = [
-  [42, 60, 255],    // deep royal blue (the room)
-  [61, 120, 255],   // electric blue beams
-  [140, 215, 255],  // icy beam-core cyan
-  [42, 60, 255],    // back to royal blue
-  [90, 255, 80],    // laser-green screens
-  [61, 120, 255],   // electric blue
-  [255, 95, 45],    // orange hoodie / red light
-  [80, 70, 255],    // blue-violet
-];
-const ROWS = 32;                      // rows of text on screen: lower = bigger chars, less recognizable
-const MUSIC_BOOST = 0.4;               // how much loudness brightens the characters
-const KICK_BOOST = 0.25;               // extra brightness flash on each kick
-const CUTOFF = 0.45;                   // person-mask threshold (higher = less background bleed)
-const MOTION_CUTOFF = 0.3;             // lower threshold used where things are moving (fast hands)
-const MOTION_AMOUNT = 0.1;             // how much change counts as "moving"
-const ASPECTS = [[1920, 1080], [1080, 1920], [1080, 1080]];  // 16:9, 9:16 (reels/tiktok), 1:1
-// ---------------------------
+    // ---------- knobs ----------
+    const CHARS = " .:-=+*#%@";            // body: dark -> bright
+    // I pulled colors from a photo, cycled in order (mostly blues, with laser green + orange hits)
+    const PALETTE = [
+      [42, 60, 255],    // deep royal blue 
+      [61, 120, 255],   // electric blue beams
+      [140, 215, 255],  // icy beam-core cyan
+      [42, 60, 255],    // back to royal blue
+      [90, 255, 80],    // laser-green screens
+      [61, 120, 255],   // electric blue
+      [255, 95, 45],    // orange hoodie / red light
+      [80, 70, 255],    // blue-violet
+    ];
+    const ROWS = 32;                      // rows of text on screen: lower = bigger chars, less recognizable
+    const MUSIC_BOOST = 0.4;               // how much loudness brightens the characters
+    const KICK_BOOST = 0.25;               // extra brightness flash on each kick
+    const CUTOFF = 0.45;                   // person-mask threshold (higher = less background bleed)
+    const MOTION_CUTOFF = 0.3;             // lower threshold used where things are moving (fast hands)
+    const MOTION_AMOUNT = 0.1;             // how much change counts as "moving"
+    const ASPECTS = [[1920, 1080], [1080, 1920], [1080, 1080]];  // 16:9, 9:16 (reels/tiktok), 1:1
+    // ---------------------------
 
-const out = document.getElementById("out");
-const ctx = out.getContext("2d");
-const hud = document.getElementById("hud");
-const sample = document.createElement("canvas");
-const sctx = sample.getContext("2d", { willReadFrequently: true });
-const video = document.createElement("video");
-const MOT_W = 96, MOT_H = 54;
-const motCanvas = document.createElement("canvas");
-motCanvas.width = MOT_W; motCanvas.height = MOT_H;
-const mctx = motCanvas.getContext("2d", { willReadFrequently: true });
-let prevMot = null;
+    const out = document.getElementById("out");
+    const ctx = out.getContext("2d");
+    const hud = document.getElementById("hud");
+    const sample = document.createElement("canvas");
+    const sctx = sample.getContext("2d", { willReadFrequently: true });
+    const video = document.createElement("video");
+    const MOT_W = 96, MOT_H = 54;
+    const motCanvas = document.createElement("canvas");
+    motCanvas.width = MOT_W; motCanvas.height = MOT_H;
+    const mctx = motCanvas.getContext("2d", { willReadFrequently: true });
+    let prevMot = null;
 
-let segmenter, mask = null, mw = 0, mh = 0, lastTs = -1;
-let ac, analyser, freq, recDest, fileEl = null;
-let vol = 0, bass = 0, bassAvg = 0, flash = 0, hue = 120, aspect = 0;
-let rec = null, chunks = [];
+    let segmenter, mask = null, mw = 0, mh = 0, lastTs = -1;
+    let ac, analyser, freq, recDest, fileEl = null;
+    let vol = 0, bass = 0, bassAvg = 0, flash = 0, hue = 120, aspect = 0;
+    let rec = null, chunks = [];
 
-document.getElementById("start").onclick = async (e) => {
-  e.target.textContent = "loading model…";
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-  segmenter = await ImageSegmenter.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
-      delegate: "GPU",
-    },
-    runningMode: "VIDEO",
-    outputConfidenceMasks: true,
-    outputCategoryMask: false,
-  });
+    document.getElementById("start").onclick = async (e) => {
+      e.target.textContent = "loading model…";
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+      segmenter = await ImageSegmenter.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        outputConfidenceMasks: true,
+        outputCategoryMask: false,
+      });
 
-  // camera only, no mic: audio comes exclusively from the dropped mix file
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: 1280, height: 720 },
-    audio: false,
-  });
-  video.srcObject = stream; video.muted = true; await video.play();
+      // audio comes exclusively from the dropped mix file
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720 },
+        audio: false,
+      });
+      video.srcObject = stream; video.muted = true; await video.play();
 
-  ac = new AudioContext();
-  analyser = ac.createAnalyser();
-  analyser.fftSize = 512;
-  analyser.smoothingTimeConstant = 0.6;
-  freq = new Uint8Array(analyser.frequencyBinCount);
-  recDest = ac.createMediaStreamDestination();
+      ac = new AudioContext();
+      analyser = ac.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      freq = new Uint8Array(analyser.frequencyBinCount);
+      recDest = ac.createMediaStreamDestination();
 
-  e.target.remove();
-  requestAnimationFrame(draw);
-};
+      e.target.remove();
+      requestAnimationFrame(draw);
+    };
 
-// ---------- drop a mix file to react to it (and record its audio) ----------
-addEventListener("dragover", (e) => e.preventDefault());
-addEventListener("drop", (e) => {
-  e.preventDefault();
-  const f = e.dataTransfer.files[0];
-  if (!f || !ac) return;
-  if (!fileEl) {
-    fileEl = new Audio();
-    const src = ac.createMediaElementSource(fileEl);
-    src.connect(analyser); src.connect(ac.destination); src.connect(recDest);
-  }
-  fileEl.src = URL.createObjectURL(f);
-  fileEl.play();
-  hud.textContent = `▶ ${f.name} · space play/pause · R record · A aspect · H hide`;
-});
-
-// ---------- keys ----------
-addEventListener("keydown", (e) => {
-  const k = e.key.toLowerCase();
-  if (k === "r") toggleRec();
-  if (k === "a" && !rec) aspect = (aspect + 1) % ASPECTS.length;
-  if (k === "h") hud.style.display = hud.style.display === "none" ? "" : "none";
-  if (k === " " && fileEl) { e.preventDefault(); fileEl.paused ? fileEl.play() : fileEl.pause(); }
-});
-
-function toggleRec() {
-  if (rec) { rec.stop(); return; }
-  const s = out.captureStream(30);
-  if (fileEl) recDest.stream.getAudioTracks().forEach((t) => s.addTrack(t));
-  const type = ["video/mp4;codecs=avc1,mp4a", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm"]
-    .find((t) => MediaRecorder.isTypeSupported(t));
-  rec = new MediaRecorder(s, { mimeType: type, videoBitsPerSecond: 12e6 });
-  chunks = [];
-  rec.ondataavailable = (e) => chunks.push(e.data);
-  rec.onstop = () => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(chunks, { type }));
-    a.download = "ascii-mix." + (type.includes("mp4") ? "mp4" : "webm");
-    a.click();
-    rec = null; hud.classList.remove("rec");
-  };
-  rec.start(1000);
-  hud.classList.add("rec");
-}
-
-function draw() {
-  // ---------- person mask ----------
-  const ts = performance.now();
-  if (ts > lastTs) {
-    lastTs = ts;
-    segmenter.segmentForVideo(video, ts, (res) => {
-      const m = res.confidenceMasks[0];
-      mw = m.width; mh = m.height;
-      mask = m.getAsFloat32Array().slice();
+    // ---------- drop a mix file to react to it (and record its audio) ----------
+    addEventListener("dragover", (e) => e.preventDefault());
+    addEventListener("drop", (e) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files[0];
+      if (!f || !ac) return;
+      if (!fileEl) {
+        fileEl = new Audio();
+        const src = ac.createMediaElementSource(fileEl);
+        src.connect(analyser); src.connect(ac.destination); src.connect(recDest);
+      }
+      fileEl.src = URL.createObjectURL(f);
+      fileEl.play();
+      hud.textContent = `▶ ${f.name} · space play/pause · R record · A aspect · H hide`;
     });
-  }
 
-  // ---------- audio ----------
-  analyser.getByteFrequencyData(freq);
-  let all = 0, low = 0;
-  for (let i = 0; i < freq.length; i++) { all += freq[i]; if (i >= 1 && i <= 4) low += freq[i]; }
-  const v = all / freq.length / 255, b = low / 4 / 255;
-  vol += (v - vol) * 0.3;
-  bass += (b - bass) * 0.4;
-  bassAvg += (b - bassAvg) * 0.02;                          // slow running average
-  if (b > bassAvg * 1.25 && b > 0.3 && flash < 0.3) flash = 1; // kick detected
-  flash *= 0.88;
-  hue = (hue + vol * 20 + flash * 30) % 360;                // rainbow drift, faster when loud
+    // ---------- keys ----------
+    addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+      if (k === "r") toggleRec();
+      if (k === "a" && !rec) aspect = (aspect + 1) % ASPECTS.length;
+      if (k === "h") hud.style.display = hud.style.display === "none" ? "" : "none";
+      if (k === " " && fileEl) { e.preventDefault(); fileEl.paused ? fileEl.play() : fileEl.pause(); }
+    });
 
-  // ---------- layout ----------
-  const [W, H] = ASPECTS[aspect];
-  if (out.width !== W || out.height !== H) { out.width = W; out.height = H; }
-  const cell = Math.round((H / ROWS) * (1 - bass * 0.25));  // bass = slightly finer grid
-  const cols = Math.floor(W / (cell * 0.6)), rows = Math.floor(H / cell);
-
-  // crop webcam to output aspect ("cover")
-  const vw = video.videoWidth, vh = video.videoHeight, ta = W / H;
-  let sx = 0, sy = 0, sw = vw, sh = vh;
-  if (vw / vh > ta) { sw = vh * ta; sx = (vw - sw) / 2; } else { sh = vw / ta; sy = (vh - sh) / 2; }
-
-  sample.width = cols; sample.height = rows;
-  sctx.save(); sctx.scale(-1, 1);
-  sctx.drawImage(video, sx, sy, sw, sh, -cols, 0, cols, rows);
-  sctx.restore();
-  const px = sctx.getImageData(0, 0, cols, rows).data;
-
-  // ---------- which cells are "you" ----------
-  const n = cols * rows;
-  const body = new Uint8Array(n);
-  // motion map: how much each spot of the webcam changed since last frame
-  mctx.drawImage(video, 0, 0, MOT_W, MOT_H);
-  const md = mctx.getImageData(0, 0, MOT_W, MOT_H).data;
-  const curMot = new Float32Array(MOT_W * MOT_H), diff = new Float32Array(MOT_W * MOT_H);
-  for (let i = 0; i < curMot.length; i++) {
-    curMot[i] = (md[i * 4] + md[i * 4 + 1] + md[i * 4 + 2]) / 765;
-    diff[i] = prevMot ? Math.abs(curMot[i] - prevMot[i]) : 0;
-  }
-  prevMot = curMot;
-
-  const S = 4;                                   // S x S sample points per character block
-  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    if (!mask) { body[y * cols + x] = 1; continue; }
-    let peak = 0, sum = 0, moving = 0;
-    for (let j = 0; j < S; j++) for (let k = 0; k < S; k++) {
-      const u = (cols - x - (k + 0.5) / S) / cols, w = (y + (j + 0.5) / S) / rows;  // mirrored
-      const fx = (sx + u * sw) / vw, fy = (sy + w * sh) / vh;
-      const cv = mask[Math.floor(fy * mh) * mw + Math.floor(fx * mw)];
-      peak = Math.max(peak, cv); sum += cv;
-      moving = Math.max(moving, diff[Math.floor(fy * MOT_H) * MOT_W + Math.floor(fx * MOT_W)]);
+    function toggleRec() {
+      if (rec) { rec.stop(); return; }
+      const s = out.captureStream(30);
+      if (fileEl) recDest.stream.getAudioTracks().forEach((t) => s.addTrack(t));
+      const type = ["video/mp4;codecs=avc1,mp4a", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm"]
+        .find((t) => MediaRecorder.isTypeSupported(t));
+      rec = new MediaRecorder(s, { mimeType: type, videoBitsPerSecond: 12e6 });
+      chunks = [];
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = () => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob(chunks, { type }));
+        a.download = "ascii-mix." + (type.includes("mp4") ? "mp4" : "webm");
+        a.click();
+        rec = null; hud.classList.remove("rec");
+      };
+      rec.start(1000);
+      hud.classList.add("rec");
     }
-    // still areas: block must be mostly you (average) -> no halo of background at the edges
-    // moving areas: any confident spot counts (peak) -> fast hands still show up
-    body[y * cols + x] = sum / (S * S) >= CUTOFF ||
-      (peak >= MOTION_CUTOFF && moving > MOTION_AMOUNT) ? 1 : 0;
-  }
 
-  // ---------- render ----------
-  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
-  ctx.font = `${cell}px monospace`;
-  ctx.textBaseline = "top";
+    function draw() {
+      // ---------- person mask ----------
+      const ts = performance.now();
+      if (ts > lastTs) {
+        lastTs = ts;
+        segmenter.segmentForVideo(video, ts, (res) => {
+          const m = res.confidenceMasks[0];
+          mw = m.width; mh = m.height;
+          mask = m.getAsFloat32Array().slice();
+        });
+      }
 
-  // auto-levels: stretch your body's darkest..brightest to the full char ramp
-  const lums = new Float32Array(n);
-  let lo = 1, hi = 0;
-  for (let c = 0; c < n; c++) {
-    const i = c * 4;
-    lums[c] = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) / 255;
-    if (body[c]) { lo = Math.min(lo, lums[c]); hi = Math.max(hi, lums[c]); }
-  }
-  const range = Math.max(hi - lo, 0.1);
-  const boost = 1 + vol * MUSIC_BOOST + flash * KICK_BOOST;   // small push, not a blowout
+      // ---------- audio ----------
+      analyser.getByteFrequencyData(freq);
+      let all = 0, low = 0;
+      for (let i = 0; i < freq.length; i++) { all += freq[i]; if (i >= 1 && i <= 4) low += freq[i]; }
+      const v = all / freq.length / 255, b = low / 4 / 255;
+      vol += (v - vol) * 0.3;
+      bass += (b - bass) * 0.4;
+      bassAvg += (b - bassAvg) * 0.02;                          // slow running average
+      if (b > bassAvg * 1.25 && b > 0.3 && flash < 0.3) flash = 1; // kick detected
+      flash *= 0.88;
+      hue = (hue + vol * 20 + flash * 30) % 360;                // rainbow drift, faster when loud
 
-  // cycle through the photo palette (hue 0..360 = position along the palette loop)
-  const pos = (hue / 360) * PALETTE.length;
-  const i0 = Math.floor(pos) % PALETTE.length, i1 = (i0 + 1) % PALETTE.length, t = pos - Math.floor(pos);
-  const lift = vol * 0.3;                                       // loud = a bit closer to white
-  const rgb = [0, 1, 2].map((k) => {
-    const c = PALETTE[i0][k] + (PALETTE[i1][k] - PALETTE[i0][k]) * t;
-    return Math.round(c + (255 - c) * lift);
-  });
-  ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-  for (let y = 0; y < rows; y++) {
-    let line = "";
-    for (let x = 0; x < cols; x++) {
-      const c = y * cols + x;
-      if (!body[c]) { line += " "; continue; }
-      const lum = Math.min(1, ((lums[c] - lo) / range) * boost);
-      line += CHARS[Math.min(CHARS.length - 1, 1 + Math.floor(lum * (CHARS.length - 1)))];
+      // ---------- layout ----------
+      const [W, H] = ASPECTS[aspect];
+      if (out.width !== W || out.height !== H) { out.width = W; out.height = H; }
+      const cell = Math.round((H / ROWS) * (1 - bass * 0.25));  // bass = slightly finer grid
+      const cols = Math.floor(W / (cell * 0.6)), rows = Math.floor(H / cell);
+
+      // crop webcam to output aspect ("cover")
+      const vw = video.videoWidth, vh = video.videoHeight, ta = W / H;
+      let sx = 0, sy = 0, sw = vw, sh = vh;
+      if (vw / vh > ta) { sw = vh * ta; sx = (vw - sw) / 2; } else { sh = vw / ta; sy = (vh - sh) / 2; }
+
+      sample.width = cols; sample.height = rows;
+      sctx.save(); sctx.scale(-1, 1);
+      sctx.drawImage(video, sx, sy, sw, sh, -cols, 0, cols, rows);
+      sctx.restore();
+      const px = sctx.getImageData(0, 0, cols, rows).data;
+
+      // ---------- which cells are "you" ----------
+      const n = cols * rows;
+      const body = new Uint8Array(n);
+      // motion map: how much each spot of the webcam changed since last frame
+      mctx.drawImage(video, 0, 0, MOT_W, MOT_H);
+      const md = mctx.getImageData(0, 0, MOT_W, MOT_H).data;
+      const curMot = new Float32Array(MOT_W * MOT_H), diff = new Float32Array(MOT_W * MOT_H);
+      for (let i = 0; i < curMot.length; i++) {
+        curMot[i] = (md[i * 4] + md[i * 4 + 1] + md[i * 4 + 2]) / 765;
+        diff[i] = prevMot ? Math.abs(curMot[i] - prevMot[i]) : 0;
+      }
+      prevMot = curMot;
+
+      const S = 4;                                   // S x S sample points per character block
+      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+        if (!mask) { body[y * cols + x] = 1; continue; }
+        let peak = 0, sum = 0, moving = 0;
+        for (let j = 0; j < S; j++) for (let k = 0; k < S; k++) {
+          const u = (cols - x - (k + 0.5) / S) / cols, w = (y + (j + 0.5) / S) / rows;  // mirrored
+          const fx = (sx + u * sw) / vw, fy = (sy + w * sh) / vh;
+          const cv = mask[Math.floor(fy * mh) * mw + Math.floor(fx * mw)];
+          peak = Math.max(peak, cv); sum += cv;
+          moving = Math.max(moving, diff[Math.floor(fy * MOT_H) * MOT_W + Math.floor(fx * MOT_W)]);
+        }
+        // still areas: block must be mostly you (average) -> no halo of background at the edges
+        // moving areas: any confident spot counts (peak) -> fast hands still show up
+        body[y * cols + x] = sum / (S * S) >= CUTOFF ||
+          (peak >= MOTION_CUTOFF && moving > MOTION_AMOUNT) ? 1 : 0;
+      }
+
+      // ---------- render ----------
+      ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+      ctx.font = `${cell}px monospace`;
+      ctx.textBaseline = "top";
+
+      // auto-levels: stretch your body's darkest..brightest to the full char ramp
+      const lums = new Float32Array(n);
+      let lo = 1, hi = 0;
+      for (let c = 0; c < n; c++) {
+        const i = c * 4;
+        lums[c] = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) / 255;
+        if (body[c]) { lo = Math.min(lo, lums[c]); hi = Math.max(hi, lums[c]); }
+      }
+      const range = Math.max(hi - lo, 0.1);
+      const boost = 1 + vol * MUSIC_BOOST + flash * KICK_BOOST;   // small push, not a blowout
+
+      // cycle through the photo palette (hue 0..360 = position along the palette loop)
+      const pos = (hue / 360) * PALETTE.length;
+      const i0 = Math.floor(pos) % PALETTE.length, i1 = (i0 + 1) % PALETTE.length, t = pos - Math.floor(pos);
+      const lift = vol * 0.3;                                       // loud = a bit closer to white
+      const rgb = [0, 1, 2].map((k) => {
+        const c = PALETTE[i0][k] + (PALETTE[i1][k] - PALETTE[i0][k]) * t;
+        return Math.round(c + (255 - c) * lift);
+      });
+      ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+      for (let y = 0; y < rows; y++) {
+        let line = "";
+        for (let x = 0; x < cols; x++) {
+          const c = y * cols + x;
+          if (!body[c]) { line += " "; continue; }
+          const lum = Math.min(1, ((lums[c] - lo) / range) * boost);
+          line += CHARS[Math.min(CHARS.length - 1, 1 + Math.floor(lum * (CHARS.length - 1)))];
+        }
+        ctx.fillText(line, 0, y * cell);
+      }
+
+      requestAnimationFrame(draw);
     }
-    ctx.fillText(line, 0, y * cell);
-  }
-
-  requestAnimationFrame(draw);
-}
-</script>
+  </script>
 </body>
+
 </html>
