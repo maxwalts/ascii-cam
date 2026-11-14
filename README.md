@@ -23,10 +23,12 @@ It's a single HTML file, with no install and no build step.
 | Space | Play / pause the track                           |
 | R     | Start or stop recording (downloads the video)    |
 | A     | Switch aspect ratio: 16:9, 9:16, 1:1             |
+| Q     | Switch output resolution: 1080p / 4K             |
 | H     | Hide or show the help text (it's never recorded) |
 
 Notes:
 - Recording runs in real time, so keep the tab visible while it records. Chrome pauses background tabs.
+- Recordings are 60fps. For YouTube, record in 4K (press Q) even if most people watch in 1080p: YouTube gives 4K uploads more bitrate, which keeps the characters sharp. Close other apps so the frame rate stays steady.
 - The first load needs internet to fetch the segmentation model.
 
 ## Tuning
@@ -43,6 +45,8 @@ All the settings are at the top of the `<script>` in `index.html`:
 | `CUTOFF`        | Person-mask threshold. Raise it if the background bleeds in.               |
 | `MOTION_CUTOFF` | Lower threshold for moving areas. Lower it if fast hands get clipped.      |
 | `MOTION_AMOUNT` | How much change counts as movement                                         |
+| `FPS`           | Recording frame rate                                                       |
+| `BITRATE`       | Recording bitrate per resolution (1080p / 4K)                              |
 
 ## License
 
