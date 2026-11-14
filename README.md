@@ -10,7 +10,7 @@ It's a single HTML file, with no install and no build step.
 
 [![Max Control — Live at Bourbon on Division (Nov 2026) [Visualizer]](https://img.youtube.com/vi/d-Z_tED9oJ0/maxresdefault.jpg)](https://www.youtube.com/watch?v=d-Z_tED9oJ0)
 
-*Max Control live at Bourbon on Division, Chicago. This 20-minute house set was recorded in 4K with this tool. Click to watch on YouTube.*
+*Max Control live at Bourbon on Division, Chicago. This 20-minute house set was recorded with this tool. Click to watch on YouTube.*
 
 ## How it works
 
