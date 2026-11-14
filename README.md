@@ -4,6 +4,14 @@ An audio-reactive ASCII webcam that runs in your browser. It cuts you out of the
 
 It's a single HTML file, with no install and no build step.
 
+**[Try the live demo](https://maxwalts.github.io/ascii-cam/)**
+
+## Example
+
+[![Max Control — Live at Bourbon on Division (Nov 2026) [Visualizer]](https://img.youtube.com/vi/d-Z_tED9oJ0/maxresdefault.jpg)](https://www.youtube.com/watch?v=d-Z_tED9oJ0)
+
+*Max Control live at Bourbon on Division, Chicago. This 20-minute house set was recorded in 4K with this tool. Click to watch on YouTube.*
+
 ## How it works
 
 - **Background removal:** [MediaPipe's selfie segmentation](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) runs in the browser and finds you in the webcam image, so only you show up.
