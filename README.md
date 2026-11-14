@@ -21,13 +21,13 @@ An audio-reactive ASCII webcam that runs in your browser
 ## Usage
 
 1. Open `index.html` in Chrome (or use the live demo)
-2. Click **start** and allow camera access. The microphone isn't used.
-3. Drag an audio file (your mix) onto the page.
+2. Click **start**
+3. Drag an audio file onto the page.
 
 | Key   | Action                                           |
 | ----- | ------------------------------------------------ |
 | Space | Play / pause the track                           |
-| R     | Start or stop recording (downloads the video)    |
+| R     | Start or stop recording (downloads the video on stop)    |
 | A     | Switch aspect ratio: 16:9, 9:16, 1:1             |
 | Q     | Switch output resolution: 1080p / 4K             |
 | H     | Hide or show the help text (it's never recorded) |
