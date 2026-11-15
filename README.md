@@ -8,21 +8,21 @@ An audio-reactive ASCII webcam that runs in your browser
 
 [![Max Control — Live at Bourbon on Division (Nov 2026) [Visualizer]](https://img.youtube.com/vi/d-Z_tED9oJ0/maxresdefault.jpg)](https://www.youtube.com/watch?v=d-Z_tED9oJ0)
 
-*This 20-minute house set was recorded with this tool. Click to watch on YouTube.*
+*This 20-minute DJ set was recorded with this tool. Click to watch on YouTube.*
 
 ## How it works
 
-- **Background removal:** [MediaPipe's selfie segmentation](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) runs in the browser and finds you in the webcam image, so only you show up.
-- **ASCII:** each frame is shrunk to a grid, and each cell's brightness picks a character from ` .:-=+*#%@`.
-- **Audio reactivity:** the Web Audio API analyses the dropped track. Kick drums brighten the image and make the grid finer, and loudness speeds up the colour cycle.
-- **Colours:** cycles through a palette taken from a photo of a rave (blues, laser green, orange).
-- **Recording:** saves the canvas and the track's audio to a video file you can post.
+- **Background removal:** [MediaPipe's selfie segmentation](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) runs in the browser and finds you in the webcam image, so only you show up
+- **ASCII:** each frame is shrunk to a grid, and each cell's brightness picks a character from ` .:-=+*#%@`
+- **Audio reactivity:** the Web Audio API analyses the dropped track. Kick drums brighten the image and make the grid finer, and loudness speeds up the colour cycle
+- **Colours:** cycles through a palette you can define
+- **Recording:** saves the canvas and the track's audio to a video file you can post
 
 ## Usage
 
 1. Open `index.html` in Chrome (or use the live demo)
 2. Click **start**
-3. Drag an audio file onto the page.
+3. Drag an audio file onto the page
 
 | Key   | Action                                           |
 | ----- | ------------------------------------------------ |
@@ -33,9 +33,9 @@ An audio-reactive ASCII webcam that runs in your browser
 | H     | Hide or show the help text (it's never recorded) |
 
 Notes:
-- Recording runs in real time, so keep the tab visible while it records. Chrome pauses background tabs.
-- Recordings are 60fps. For YouTube, record in 4K (press Q) even if most people watch in 1080p: YouTube gives 4K uploads more bitrate, which keeps the characters sharp. Close other apps so the frame rate stays steady.
-- The first load needs internet to fetch the segmentation model.
+- Recording runs in real time, so keep the tab visible while it records
+- Recordings are 60fps. For YouTube, record in 4K (press Q) even if most people watch in 1080p: YouTube gives 4K uploads more bitrate, which keeps the characters sharp. Close other apps so the frame rate stays steady
+- The first load needs internet to fetch the segmentation model
 
 ## Tuning
 
